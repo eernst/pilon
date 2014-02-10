@@ -111,7 +111,7 @@ class GenomeFile(val referenceFile: File, val targets : String = "") {
 	                   new Vcf(Pilon.outputFile(".vcf"), regions.map({r => (r._1, r._2.map({_.size}).sum)}))
                    else null
 
-    regions foreach { reg =>
+    regions.par foreach { reg =>
       val name = reg._1
       val sep = if (name.indexOf("|") < 0) "_"
       else if (name(name.length-1) == '|') ""
@@ -126,22 +126,26 @@ class GenomeFile(val referenceFile: File, val targets : String = "") {
           r.identifyAndFixIssues
         }
         if (Pilon.vcf) {
-          println("Writing " + r.name + " VCF to " + vcf.file)
-          r.writeVcf(vcf)
+          synchronized {
+            println("Writing " + r.name + " VCF to " + vcf.file)
+            r.writeVcf(vcf)
+          }
         }
         if (Pilon.changes) {
-          println("Writing " + r.name + " changes to " + changesFile)
-          r.writeChanges(changesWriter, newName)
-
+          synchronized {
+            println("Writing " + r.name + " changes to " + changesFile)
+            r.writeChanges(changesWriter, newName)
+          }
         }
         r.finalizePileUps
       }
       if (!Pilon.fixList.isEmpty) {
-
-        println("Writing updated " + newName + " to " + fastaFile)
-        val fixedRegions = reg._2 map { _.bases }
-        val bases = fixedRegions reduceLeft {_ ++ _} map {_.toChar} mkString ""
-        writeFastaElement(fastaWriter, newName, bases)
+      	synchronized {
+          println("Writing updated " + newName + " to " + fastaFile)
+          val fixedRegions = reg._2 map { _.bases }
+          val bases = fixedRegions reduceLeft {_ ++ _} map {_.toChar} mkString ""
+          writeFastaElement(fastaWriter, newName, bases)
+        }
         //TODO: write out change file
       }
     }
